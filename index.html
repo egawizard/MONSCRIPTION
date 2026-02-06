@@ -553,7 +553,14 @@
                 <img src="https://files.catbox.moe/405c54.jfif" alt="MONS Logo" class="logo">
                 <div>
                     <h1>MONSCRIPTIONS<span class="version-badge">V2</span></h1>
-                    <div style="font-size: 0.8rem; color: rgba(250, 248, 243, 0.6);">MON-20 Inscription Protocol</div>
+                    <div style="font-size: 0.8rem; color: rgba(250, 248, 243, 0.6);">
+                        MON-20 Inscription Protocol | 
+                        <a href="https://monadvision.com/address/0xed939305a2da8f8a7c2effa64c95fb5b37693ef4" 
+                           target="_blank" 
+                           style="color: var(--gold); text-decoration: none;">
+                            View Contract ↗
+                        </a>
+                    </div>
                 </div>
             </div>
             <div class="wallet-section">
@@ -566,6 +573,22 @@
     </header>
 
     <main>
+        <!-- Network Info Banner -->
+        <div class="card" style="margin-bottom: 2rem; background: linear-gradient(135deg, rgba(255, 107, 53, 0.1) 0%, rgba(212, 175, 55, 0.05) 100%);">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <h3 style="color: var(--gold); margin-bottom: 0.5rem;">⚡ Monad Mainnet Required</h3>
+                    <p style="color: rgba(250, 248, 243, 0.7); margin: 0;">
+                        Chain ID: <strong style="color: var(--gold);">143</strong> | 
+                        RPC: <code style="background: rgba(0,0,0,0.3); padding: 0.2rem 0.5rem; border-radius: 4px; color: var(--gold-light);">https://rpc.monad.xyz</code>
+                    </p>
+                </div>
+                <button id="addNetworkBtn" class="btn btn-secondary" onclick="addMonadNetwork()">
+                    ➕ Add Monad Network
+                </button>
+            </div>
+        </div>
+
         <!-- Live Progress Section -->
         <div class="live-progress-section">
             <div class="progress-header">
@@ -710,10 +733,10 @@
         // Configuration
         const CONFIG = {
             CONTRACT_ADDRESS: '0xed939305a2da8f8a7c2effa64c95fb5b37693ef4',
-            CHAIN_ID: 41454, // Monad Mainnet
+            CHAIN_ID: 143, // Monad Mainnet
             CHAIN_NAME: 'Monad Mainnet',
-            RPC_URL: 'https://rpc.monad.network',
-            BLOCK_EXPLORER: 'https://explorer.monad.network',
+            RPC_URL: 'https://rpc.monad.xyz',
+            BLOCK_EXPLORER: 'https://monadvision.com',
             INSCRIPTION_FEE: '1',
             MARKETPLACE_FEE: 2.5,
         };
@@ -761,6 +784,39 @@
         const listingPriceInput = document.getElementById('listingPrice');
         const totalListingPriceInput = document.getElementById('totalListingPrice');
 
+        // Add Monad Network to MetaMask
+        window.addMonadNetwork = async function() {
+            if (typeof window.ethereum === 'undefined') {
+                showNotification('Please install MetaMask first!', 'error');
+                return;
+            }
+
+            try {
+                await ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [{
+                        chainId: ethers.utils.hexValue(CONFIG.CHAIN_ID),
+                        chainName: CONFIG.CHAIN_NAME,
+                        rpcUrls: [CONFIG.RPC_URL],
+                        blockExplorerUrls: [CONFIG.BLOCK_EXPLORER],
+                        nativeCurrency: {
+                            name: 'MON',
+                            symbol: 'MON',
+                            decimals: 18
+                        }
+                    }],
+                });
+                showNotification('Monad Network added successfully!', 'success');
+            } catch (error) {
+                console.error('Add network error:', error);
+                if (error.code === 4902) {
+                    showNotification('Network already exists in your wallet', 'error');
+                } else {
+                    showNotification('Failed to add network: ' + error.message, 'error');
+                }
+            }
+        }
+
         // Initialize
         async function init() {
             if (typeof window.ethereum !== 'undefined') {
@@ -778,6 +834,7 @@
         // Connect Wallet
         async function connectWallet() {
             try {
+                // Request accounts
                 await ethereum.request({ method: 'eth_requestAccounts' });
                 provider = new ethers.providers.Web3Provider(window.ethereum);
                 signer = provider.getSigner();
@@ -785,8 +842,15 @@
 
                 // Check if on correct network
                 const network = await provider.getNetwork();
+                console.log('Current network:', network.chainId);
+                console.log('Required network:', CONFIG.CHAIN_ID);
+                
                 if (network.chainId !== CONFIG.CHAIN_ID) {
+                    showNotification(`Wrong network! Switching to Monad Mainnet (Chain ID: ${CONFIG.CHAIN_ID})...`, 'error');
                     await switchNetwork();
+                    // Refresh provider after network switch
+                    provider = new ethers.providers.Web3Provider(window.ethereum);
+                    signer = provider.getSigner();
                 }
 
                 // Initialize contract
@@ -805,9 +869,32 @@
                 // Listen for events
                 setupEventListeners();
 
+                // Listen for account changes
+                ethereum.on('accountsChanged', function (accounts) {
+                    if (accounts.length === 0) {
+                        // User disconnected wallet
+                        location.reload();
+                    } else {
+                        // User switched account
+                        location.reload();
+                    }
+                });
+
+                // Listen for chain changes
+                ethereum.on('chainChanged', function (chainId) {
+                    location.reload();
+                });
+
             } catch (error) {
                 console.error('Connection error:', error);
-                showNotification('Failed to connect wallet: ' + error.message, 'error');
+                
+                if (error.code === 4001) {
+                    showNotification('Connection rejected by user', 'error');
+                } else if (error.code === -32002) {
+                    showNotification('Please check MetaMask - connection request pending', 'error');
+                } else {
+                    showNotification('Failed to connect: ' + (error.message || 'Unknown error'), 'error');
+                }
             }
         }
 
@@ -820,7 +907,7 @@
                 });
             } catch (switchError) {
                 // Network doesn't exist, add it
-                if (switchError.code === 4902) {
+                if (switchError.code === 4902 || switchError.code === -32603) {
                     try {
                         await ethereum.request({
                             method: 'wallet_addEthereumChain',
@@ -836,7 +923,10 @@
                                 }
                             }],
                         });
+                        showNotification('Monad Network added successfully! Please switch to it.', 'success');
                     } catch (addError) {
+                        console.error('Add network error:', addError);
+                        showNotification('Failed to add Monad Network. Please add it manually in MetaMask.', 'error');
                         throw addError;
                     }
                 } else {
