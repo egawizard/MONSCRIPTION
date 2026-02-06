@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MONSCRIPTIONS MON-20 - Token Inscription Protocol</title>
+    <link rel="icon" type="image/jpeg" href="https://files.catbox.moe/405c54.jfif">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Web3 Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    
+    <style>
+        :root {
+            --gold-light: #f4e4c1;
+            --gold: #d4af37;
+            --gold-dark: #b8941e;
+            --charcoal: #1a1a1a;
+            --charcoal-light: #2a2a2a;
+            --cream: #faf8f3;
+            --accent: #ff6b35;
+            --success: #4ade80;
+            --shadow: rgba(212, 175, 55, 0.15);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: var(--charcoal);
+            color: var(--cream);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .background-pattern {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.03;
+            background-image: 
+                radial-gradient(circle at 20% 50%, var(--gold) 1px, transparent 1px),
+                radial-gradient(circle at 80% 80%, var(--gold) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: drift 60s infinite linear;
+        }
+
+        @keyframes drift {
+            0% { background-position: 0 0, 25px 25px; }
+            100% { background-position: 50px 50px, 75px 75px; }
+        }
+
+        .glow-orb {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.15;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .orb-1 {
+            background: var(--gold);
+            top: -200px;
+            right: -200px;
+            animation: float 20s infinite ease-in-out;
+        }
+
+        .orb-2 {
+            background: var(--accent);
+            bottom: -200px;
+            left: -200px;
+            animation: float 25s infinite ease-in-out reverse;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(-50px, 50px) scale(1.1); }
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--charcoal-light) 0%, rgba(26, 26, 26, 0.95) 100%);
+            border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+            padding: 1.5rem 2rem;
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid var(--gold);
+            box-shadow: 0 0 20px var(--shadow);
+        }
+
+        h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.8rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--gold-light) 0%, var(--gold) 50%, var(--gold-dark) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: 2px;
+        }
+
+        .wallet-section {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+            color: var(--charcoal);
+            box-shadow: 0 4px 20px var(--shadow);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 30px var(--shadow);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid var(--gold);
+            color: var(--gold);
+        }
+
+        .btn-secondary:hover {
+            background: var(--gold);
+            color: var(--charcoal);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .wallet-address {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            color: var(--gold-light);
+            background: rgba(212, 175, 55, 0.1);
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            border: 1px solid rgba(212, 175, 55, 0.3);
+        }
+
+        main {
+            max-width: 1400px;
+            margin: 3rem auto;
+            padding: 0 2rem;
+        }
+
+        .hero {
+            text-align: center;
+            margin-bottom: 4rem;
+            animation: fadeInUp 1s ease;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .hero h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--cream) 0%, var(--gold-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 1.1rem;
+            color: rgba(250, 248, 243, 0.7);
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-bottom: 4rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, var(--charcoal-light) 0%, rgba(42, 42, 42, 0.8) 100%);
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            animation: fadeInUp 1s ease;
+            animation-fill-mode: both;
+        }
+
+        .stat-card:nth-child(1) { animation-delay: 0.1s; }
+        .stat-card:nth-child(2) { animation-delay: 0.2s; }
+        .stat-card:nth-child(3) { animation-delay: 0.3s; }
+        .stat-card:nth-child(4) { animation-delay: 0.4s; }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--gold);
+            box-shadow: 0 10px 40px var(--shadow);
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: rgba(250, 248, 243, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-family: 'Playfair Display', serif;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--gold);
+        }
+
+        .progress-section {
+            background: linear-gradient(135deg, var(--charcoal-light) 0%, rgba(42, 42, 42, 0.8) 100%);
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            border-radius: 16px;
+            padding: 2.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .progress-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.5rem;
+            color: var(--gold-light);
+        }
+
+        .progress-percentage {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--gold);
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 30px;
+            background: rgba(26, 26, 26, 0.6);
+            border-radius: 15px;
+            overflow: hidden;
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            position: relative;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--gold-dark) 0%, var(--gold) 50%, var(--gold-light) 100%);
+            border-radius: 15px;
+            transition: width 1s ease;
+            box-shadow: 0 0 20px var(--shadow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: rgba(250, 248, 243, 0.6);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid rgba(212, 175, 55, 0.2);
+        }
+
+        .tab {
+            padding: 1rem 2rem;
+            background: transparent;
+            border: none;
+            color: rgba(250, 248, 243, 0.6);
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .tab:hover {
+            color: var(--gold-light);
+        }
+
+        .tab.active {
+            color: var(--gold);
+            border-bottom-color: var(--gold);
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .action-card {
+            background: linear-gradient(135deg, var(--charcoal-light) 0%, rgba(42, 42, 42, 0.8) 100%);
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            border-radius: 16px;
+            padding: 3rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            margin-bottom: 2rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--gold-light);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.85rem;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 1rem;
+            background: rgba(26, 26, 26, 0.6);
+            border: 2px solid rgba(212, 175, 55, 0.3);
+            border-radius: 8px;
+            color: var(--cream);
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--gold);
+            box-shadow: 0 0 20px var(--shadow);
+        }
+
+        input::placeholder {
+            color: rgba(250, 248, 243, 0.3);
+        }
+
+        .info-box {
+            background: rgba(212, 175, 55, 0.1);
+            border-left: 4px solid var(--gold);
+            padding: 1rem 1.5rem;
+            margin-bottom: 2rem;
+            border-radius: 8px;
+        }
+
+        .info-box p {
+            color: rgba(250, 248, 243, 0.8);
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .info-box strong {
+            color: var(--gold);
+        }
+
+        .warning-box {
+            background: rgba(255, 107, 53, 0.1);
+            border-left: 4px solid var(--accent);
+            padding: 1rem 1.5rem;
+            margin-bottom: 2rem;
+            border-radius: 8px;
+        }
+
+        .warning-box p {
+            color: var(--accent);
+            font-size: 0.9rem;
+        }
+
+        .btn-action {
+            width: 100%;
+            padding: 1.25rem;
+            font-size: 1.1rem;
+            margin-top: 1rem;
+        }
+
+        .transaction-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .transaction-item {
+            background: rgba(26, 26, 26, 0.6);
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .transaction-item:hover {
+            border-color: var(--gold);
+            transform: translateX(5px);
+        }
+
+        .tx-hash {
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            color: var(--gold);
+            word-break: break-all;
+            margin-bottom: 0.5rem;
+        }
+
+        .tx-details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            color: rgba(250, 248, 243, 0.6);
+        }
+
+        footer {
+            text-align: center;
+            padding: 3rem 2rem;
+            border-top: 1px solid rgba(212, 175, 55, 0.2);
+            margin-top: 5rem;
+        }
+
+        .creator-credit {
+            font-size: 1rem;
+            color: rgba(250, 248, 243, 0.7);
+            margin-bottom: 1rem;
+        }
+
+        .creator-credit a {
+            color: var(--gold);
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .creator-credit a:hover {
+            color: var(--gold-light);
+            text-decoration: underline;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 1.5rem;
+        }
+
+        .footer-link {
+            color: rgba(250, 248, 243, 0.6);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .footer-link:hover {
+            color: var(--gold);
+        }
+
+        .notification {
+            position: fixed;
+            top: 100px;
+            right: 2rem;
+            background: linear-gradient(135deg, var(--charcoal-light) 0%, var(--charcoal) 100%);
+            border: 2px solid var(--gold);
+            border-radius: 12px;
+            padding: 1.5rem 2rem;
+            max-width: 400px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            animation: slideIn 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(500px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .notification.success {
+            border-color: var(--success);
+        }
+
+        .notification.error {
+            border-color: var(--accent);
+        }
+
+        .notification-title {
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--gold);
+        }
+
+        .notification.success .notification-title {
+            color: var(--success);
+        }
+
+        .notification.error .notification-title {
+            color: var(--accent);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(212, 175, 55, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--gold);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .hero h2 {
+                font-size: 2rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .tabs {
+                flex-wrap: wrap;
+            }
+
+            .tab {
+                padding: 0.75rem 1rem;
+                font-size: 0.9rem;
+            }
+
+            .notification {
+                left: 1rem;
+                right: 1rem;
+                max-width: none;
+            }
+        }
+
+        .readonly-field {
+            background: rgba(26, 26, 26, 0.4);
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="background-pattern"></div>
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
+
+    <header>
+        <div class="header-content">
+            <div class="logo-section">
+                <img src="https://files.catbox.moe/405c54.jfif" alt="MON-20 Logo" class="logo">
+                <h1>MONSCRIPTIONS</h1>
+            </div>
+            <div class="wallet-section">
+                <div id="walletAddress" class="wallet-address hidden"></div>
+                <button id="connectWalletBtn" class="btn btn-primary">Connect Wallet</button>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero">
+            <h2>MON-20 Token Inscription Protocol</h2>
+            <p>The first inscription-based token standard on Monad. Mint, transfer, and trade MONS tokens with minimal fees.</p>
+            <div id="indexerStatus" style="margin-top: 1rem; padding: 0.75rem; border-radius: 8px; font-size: 0.9rem;"></div>
+        </section>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Supply</div>
+                <div class="stat-value">21M</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Per Mint</div>
+                <div class="stat-value">100 MONS</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Mint Fee</div>
+                <div class="stat-value">1 MON</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Max Per Wallet</div>
+                <div class="stat-value">100 Mints</div>
+            </div>
+        </div>
+
+        <div class="progress-section">
+            <div class="progress-header">
+                <h3 class="progress-title">Minting Progress</h3>
+                <div class="progress-percentage" id="progressPercentage">0%</div>
+            </div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+            </div>
+            <div class="progress-info">
+                <span><span id="mintedAmount">0</span> MONS Minted</span>
+                <span><span id="remainingAmount">21,000,000</span> MONS Remaining</span>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="deploy">Deploy</button>
+            <button class="tab" data-tab="mint">Mint</button>
+            <button class="tab" data-tab="transfer">Transfer</button>
+        </div>
+
+        <div id="deployTab" class="tab-content active">
+            <div class="action-card">
+                <div class="info-box">
+                    <p><strong>Deploy MON-20 Token</strong></p>
+                    <p>Initialize the MONS token inscription with the following parameters. This can only be done once.</p>
+                    <p style="margin-top: 0.5rem; font-family: 'Courier New', monospace; font-size: 0.85rem;">
+                        Inscription: data:,{"p":"mon-20","op":"deploy","tick":"mons","max":"21000000","lim":"100","mlim":"100"}
+                    </p>
+                </div>
+
+                <form id="deployForm">
+                    <div class="form-group">
+                        <label>Protocol</label>
+                        <input type="text" value="mon-20" class="readonly-field" readonly>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Ticker</label>
+                        <input type="text" value="MONS" class="readonly-field" readonly>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Total Supply</label>
+                        <input type="text" value="21,000,000" class="readonly-field" readonly>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Limit Per Mint</label>
+                        <input type="text" value="100" class="readonly-field" readonly>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Max Mints Per Wallet</label>
+                        <input type="text" value="100" class="readonly-field" readonly>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-action">Deploy Token</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="mintTab" class="tab-content">
+            <div class="action-card">
+                <div class="info-box">
+                    <p><strong>Mint MONS Tokens</strong></p>
+                    <p>Each mint creates 100 MONS tokens. Fee: 1 MON per mint. Maximum 100 mints per wallet.</p>
+                    <p style="margin-top: 0.5rem; font-family: 'Courier New', monospace; font-size: 0.85rem;">
+                        Inscription: data:,{"p":"mon-20","op":"mint","tick":"mons","amt":"100"}
+                    </p>
+                </div>
+
+                <div class="warning-box">
+                    <p>⚠️ Make sure you have enough MON in your wallet to cover the mint fee (1 MON) plus gas fees.</p>
+                </div>
+
+                <form id="mintForm">
+                    <div class="form-group">
+                        <label>Number of Mints (1-100)</label>
+                        <input type="number" id="mintAmount" min="1" max="100" value="1" placeholder="Enter number of mints">
+                    </div>
+
+                    <div class="form-group">
+                        <label>You Will Receive</label>
+                        <input type="text" id="receiveAmount" value="100 MONS" class="readonly-field" readonly>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Total Fee</label>
+                        <input type="text" id="totalFee" value="1 MON" class="readonly-field" readonly>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Your Mint Count</label>
+                        <input type="text" id="userMintCount" value="0 / 100" class="readonly-field" readonly>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-action">Mint MONS</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="transferTab" class="tab-content">
+            <div class="action-card">
+                <div class="info-box">
+                    <p><strong>Transfer MONS Tokens</strong></p>
+                    <p>Transfer your MONS tokens to another address. Make sure the recipient address is correct.</p>
+                    <p style="margin-top: 0.5rem; font-family: 'Courier New', monospace; font-size: 0.85rem;">
+                        Inscription: data:,{"p":"mon-20","op":"transfer","tick":"mons","to":"0x...","amt":"100"}
+                    </p>
+                </div>
+
+                <form id="transferForm">
+                    <div class="form-group">
+                        <label>Recipient Address</label>
+                        <input type="text" id="recipientAddress" placeholder="0x..." required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Amount (MONS)</label>
+                        <input type="number" id="transferAmount" min="1" placeholder="Enter amount" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Your Balance</label>
+                        <input type="text" id="userBalance" value="0 MONS" class="readonly-field" readonly>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-action">Transfer Tokens</button>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="creator-credit">
+            Created by <a href="https://x.com/steadynads" target="_blank" rel="noopener noreferrer">@steadynads</a>
+        </div>
+        <div class="footer-links">
+            <a href="#" class="footer-link">Documentation</a>
+            <a href="#" class="footer-link">Explorer</a>
+            <a href="https://x.com/steadynads" target="_blank" class="footer-link">Twitter</a>
+        </div>
+    </footer>
+
+    <script>
+        // Configuration
+        const CONFIG = {
+            TREASURY_ADDRESS: '0xa71407ED688B2E97bc217C0d05E366DEcD236731',
+            MINT_FEE: '1', // 1 MON
+            TICKER: 'MONS',
+            TOTAL_SUPPLY: 21000000,
+            PER_MINT: 100,
+            MAX_MINTS_PER_WALLET: 100,
+            // Deployed contract address
+            CONTRACT_ADDRESS: '0x42f4682a20d7249C093831B42D22cC2101329Fa0',
+            MONAD_CHAIN_ID: '0x29A', // 666 in hex
+            MONAD_RPC_URL: 'https://rpc.monad.network', // Replace with actual Monad RPC
+            // Indexer API URL - You need to deploy the indexer service first
+            INDEXER_API_URL: 'http://localhost:3000' // Change this to your deployed indexer URL
+        };
+
+        // State
+        let provider = null;
+        let signer = null;
+        let contract = null;
+        let userAddress = null;
+        let totalMinted = 0;
+        let userMintCount = 0;
+        let userBalance = 0;
+
+        // Contract ABI - Inscription-based protocol
+        const CONTRACT_ABI = [
+            "function inscribe(bytes calldata data) external payable",
+            "function batchInscribe(bytes[] calldata dataArray) external payable",
+            "event Inscription(address indexed from, bytes data, uint256 timestamp)"
+        ];
+
+        // DOM Elements
+        const connectWalletBtn = document.getElementById('connectWalletBtn');
+        const walletAddressDiv = document.getElementById('walletAddress');
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        const mintAmountInput = document.getElementById('mintAmount');
+        const receiveAmountInput = document.getElementById('receiveAmount');
+        const totalFeeInput = document.getElementById('totalFee');
+        const userMintCountInput = document.getElementById('userMintCount');
+        const userBalanceInput = document.getElementById('userBalance');
+        const progressBar = document.getElementById('progressBar');
+        const progressPercentage = document.getElementById('progressPercentage');
+        const mintedAmount = document.getElementById('mintedAmount');
+        const remainingAmount = document.getElementById('remainingAmount');
+
+        // Initialize
+        window.addEventListener('load', async () => {
+            checkWalletConnection();
+            updateMintCalculations();
+            await checkIndexerStatus();
+        });
+
+        // Check indexer status
+        async function checkIndexerStatus() {
+            const statusDiv = document.getElementById('indexerStatus');
+            try {
+                const response = await fetch(`${CONFIG.INDEXER_API_URL}/health`);
+                if (response.ok) {
+                    statusDiv.innerHTML = '✅ Indexer Online - Balances will update in real-time';
+                    statusDiv.style.background = 'rgba(74, 222, 128, 0.1)';
+                    statusDiv.style.border = '1px solid var(--success)';
+                    statusDiv.style.color = 'var(--success)';
+                } else {
+                    throw new Error('Indexer not responding');
+                }
+            } catch (error) {
+                statusDiv.innerHTML = '⚠️ Indexer Offline - Please setup indexer service to see balances. <a href="#" style="color: var(--gold); text-decoration: underline;" onclick="alert(\'Instructions:\\n1. Download indexer.js\\n2. Run: npm install\\n3. Configure .env with contract address\\n4. Run: npm start\\n5. Update INDEXER_API_URL in website config\')">Setup Instructions</a>';
+                statusDiv.style.background = 'rgba(255, 107, 53, 0.1)';
+                statusDiv.style.border = '1px solid var(--accent)';
+                statusDiv.style.color = 'var(--accent)';
+            }
+        }
+
+        // Connect Wallet
+        connectWalletBtn.addEventListener('click', connectWallet);
+
+        async function connectWallet() {
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    showNotification('Please install MetaMask, Rabby, or OKX Wallet!', 'error');
+                    return;
+                }
+
+                // Request account access
+                const accounts = await window.ethereum.request({ 
+                    method: 'eth_requestAccounts' 
+                });
+
+                userAddress = accounts[0];
+                
+                // Switch to Monad network if needed
+                try {
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: CONFIG.MONAD_CHAIN_ID }],
+                    });
+                } catch (switchError) {
+                    // This error code indicates that the chain has not been added to MetaMask
+                    if (switchError.code === 4902) {
+                        try {
+                            await window.ethereum.request({
+                                method: 'wallet_addEthereumChain',
+                                params: [{
+                                    chainId: CONFIG.MONAD_CHAIN_ID,
+                                    chainName: 'Monad Mainnet',
+                                    nativeCurrency: {
+                                        name: 'MON',
+                                        symbol: 'MON',
+                                        decimals: 18
+                                    },
+                                    rpcUrls: [CONFIG.MONAD_RPC_URL],
+                                    blockExplorerUrls: ['https://explorer.monad.network']
+                                }],
+                            });
+                        } catch (addError) {
+                            showNotification('Failed to add Monad network', 'error');
+                            return;
+                        }
+                    } else {
+                        showNotification('Failed to switch to Monad network', 'error');
+                        return;
+                    }
+                }
+
+                // Initialize ethers
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                signer = provider.getSigner();
+
+                // Initialize contract
+                if (CONFIG.CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') {
+                    contract = new ethers.Contract(CONFIG.CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+                }
+
+                // Update UI
+                updateWalletUI();
+                
+                // Load user data
+                await loadUserData();
+
+                showNotification('Wallet connected successfully!', 'success');
+
+                // Listen for account changes
+                window.ethereum.on('accountsChanged', handleAccountsChanged);
+                window.ethereum.on('chainChanged', () => window.location.reload());
+
+            } catch (error) {
+                console.error('Error connecting wallet:', error);
+                showNotification('Failed to connect wallet: ' + error.message, 'error');
+            }
+        }
+
+        async function checkWalletConnection() {
+            if (typeof window.ethereum !== 'undefined') {
+                const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                if (accounts.length > 0) {
+                    userAddress = accounts[0];
+                    provider = new ethers.providers.Web3Provider(window.ethereum);
+                    signer = provider.getSigner();
+                    
+                    if (CONFIG.CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') {
+                        contract = new ethers.Contract(CONFIG.CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+                    }
+                    
+                    updateWalletUI();
+                    await loadUserData();
+                }
+            }
+        }
+
+        function handleAccountsChanged(accounts) {
+            if (accounts.length === 0) {
+                // User disconnected wallet
+                userAddress = null;
+                provider = null;
+                signer = null;
+                contract = null;
+                updateWalletUI();
+            } else {
+                // User switched accounts
+                window.location.reload();
+            }
+        }
+
+        function updateWalletUI() {
+            if (userAddress) {
+                walletAddressDiv.textContent = formatAddress(userAddress);
+                walletAddressDiv.classList.remove('hidden');
+                connectWalletBtn.textContent = 'Disconnect';
+                connectWalletBtn.onclick = disconnectWallet;
+            } else {
+                walletAddressDiv.classList.add('hidden');
+                connectWalletBtn.textContent = 'Connect Wallet';
+                connectWalletBtn.onclick = connectWallet;
+            }
+        }
+
+        function disconnectWallet() {
+            userAddress = null;
+            provider = null;
+            signer = null;
+            contract = null;
+            updateWalletUI();
+            showNotification('Wallet disconnected', 'success');
+        }
+
+        async function loadUserData() {
+            if (!userAddress) {
+                totalMinted = 0;
+                userMintCount = 0;
+                userBalance = 0;
+                updateProgressUI();
+                updateUserStats();
+                return;
+            }
+
+            try {
+                // Fetch data from indexer API
+                const ticker = CONFIG.TICKER.toLowerCase();
+                
+                // Get token info
+                const tokenResponse = await fetch(`${CONFIG.INDEXER_API_URL}/api/token/${ticker}`);
+                if (tokenResponse.ok) {
+                    const tokenData = await tokenResponse.json();
+                    totalMinted = tokenData.totalMinted || 0;
+                } else {
+                    console.log('Token not deployed yet or indexer not available');
+                    totalMinted = 0;
+                }
+                
+                // Get user info
+                const userResponse = await fetch(`${CONFIG.INDEXER_API_URL}/api/user/${userAddress}`);
+                if (userResponse.ok) {
+                    const userData = await userResponse.json();
+                    userMintCount = userData.mintCount || 0;
+                    userBalance = userData.balance || 0;
+                } else {
+                    console.log('User data not available');
+                    userMintCount = 0;
+                    userBalance = 0;
+                }
+
+                updateProgressUI();
+                updateUserStats();
+
+            } catch (error) {
+                console.error('Error loading data from indexer:', error);
+                console.log('Make sure indexer is running at:', CONFIG.INDEXER_API_URL);
+                
+                // Show placeholder values if indexer is not available
+                totalMinted = 0;
+                userMintCount = 0;
+                userBalance = 0;
+                updateProgressUI();
+                updateUserStats();
+            }
+        }
+
+        function updateProgressUI() {
+            const percentage = (totalMinted / CONFIG.TOTAL_SUPPLY * 100).toFixed(2);
+            progressBar.style.width = percentage + '%';
+            progressPercentage.textContent = percentage + '%';
+            mintedAmount.textContent = totalMinted.toLocaleString();
+            remainingAmount.textContent = (CONFIG.TOTAL_SUPPLY - totalMinted).toLocaleString();
+        }
+
+        function updateUserStats() {
+            userMintCountInput.value = `${userMintCount} / ${CONFIG.MAX_MINTS_PER_WALLET}`;
+            userBalanceInput.value = `${userBalance.toLocaleString()} MONS`;
+        }
+
+        // Tab Navigation
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetTab = tab.dataset.tab;
+                
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(tc => tc.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(targetTab + 'Tab').classList.add('active');
+            });
+        });
+
+        // Mint Amount Calculation
+        mintAmountInput.addEventListener('input', updateMintCalculations);
+
+        function updateMintCalculations() {
+            const numMints = parseInt(mintAmountInput.value) || 1;
+            const clampedMints = Math.max(1, Math.min(CONFIG.MAX_MINTS_PER_WALLET, numMints));
+            
+            if (numMints !== clampedMints) {
+                mintAmountInput.value = clampedMints;
+            }
+
+            const totalTokens = clampedMints * CONFIG.PER_MINT;
+            const totalFee = clampedMints * parseFloat(CONFIG.MINT_FEE);
+
+            receiveAmountInput.value = `${totalTokens.toLocaleString()} MONS`;
+            totalFeeInput.value = `${totalFee.toLocaleString()} MON`;
+        }
+
+        // Deploy Form
+        document.getElementById('deployForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!userAddress) {
+                showNotification('Please connect your wallet first!', 'error');
+                return;
+            }
+
+            if (!contract) {
+                showNotification('Contract not initialized. Please set CONTRACT_ADDRESS in the code.', 'error');
+                return;
+            }
+
+            try {
+                const button = e.target.querySelector('button[type="submit"]');
+                button.disabled = true;
+                button.innerHTML = '<span class="loading"></span> Deploying...';
+
+                // Create inscription data in Ethscriptions format
+                const inscriptionData = 'data:,{"p":"mon-20","op":"deploy","tick":"mons","max":"21000000","lim":"100","mlim":"100"}';
+                const dataBytes = ethers.utils.toUtf8Bytes(inscriptionData);
+
+                const tx = await contract.inscribe(dataBytes, { 
+                    value: ethers.utils.parseEther(CONFIG.MINT_FEE) 
+                });
+                
+                showNotification('Transaction submitted! Waiting for confirmation...', 'success');
+                
+                const receipt = await tx.wait();
+                
+                // Log inscription details
+                console.log('=== DEPLOY INSCRIPTION ===');
+                console.log('Inscription Data:', inscriptionData);
+                console.log('Transaction Hash:', receipt.transactionHash);
+                console.log('Block Number:', receipt.blockNumber);
+                console.log('Contract Address:', CONFIG.CONTRACT_ADDRESS);
+                console.log('==========================');
+                
+                showNotification('Token deployed successfully! Inscription: ' + inscriptionData, 'success');
+                
+                console.log('Deploy inscription:', inscriptionData);
+                console.log('Transaction:', receipt.transactionHash);
+                
+                await loadUserData();
+
+            } catch (error) {
+                console.error('Deploy error:', error);
+                showNotification('Deploy failed: ' + error.message, 'error');
+            } finally {
+                const button = e.target.querySelector('button[type="submit"]');
+                button.disabled = false;
+                button.textContent = 'Deploy Token';
+            }
+        });
+
+        // Mint Form
+        document.getElementById('mintForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!userAddress) {
+                showNotification('Please connect your wallet first!', 'error');
+                return;
+            }
+
+            if (!contract) {
+                showNotification('Contract not initialized. Please deploy the token first.', 'error');
+                return;
+            }
+
+            const numMints = parseInt(mintAmountInput.value);
+            
+            if (userMintCount + numMints > CONFIG.MAX_MINTS_PER_WALLET) {
+                showNotification(`Exceeds max mints per wallet! You can only mint ${CONFIG.MAX_MINTS_PER_WALLET - userMintCount} more times.`, 'error');
+                return;
+            }
+
+            try {
+                const button = e.target.querySelector('button[type="submit"]');
+                button.disabled = true;
+                button.innerHTML = '<span class="loading"></span> Minting...';
+
+                // Create inscription data array for batch minting
+                const inscriptions = [];
+                for (let i = 0; i < numMints; i++) {
+                    const inscriptionData = `data:,{"p":"mon-20","op":"mint","tick":"mons","amt":"${CONFIG.PER_MINT}"}`;
+                    inscriptions.push(ethers.utils.toUtf8Bytes(inscriptionData));
+                }
+
+                const totalFee = ethers.utils.parseEther((numMints * parseFloat(CONFIG.MINT_FEE)).toString());
+                
+                let tx;
+                if (numMints === 1) {
+                    // Single inscription
+                    tx = await contract.inscribe(inscriptions[0], { value: totalFee });
+                } else {
+                    // Batch inscriptions
+                    tx = await contract.batchInscribe(inscriptions, { value: totalFee });
+                }
+                
+                showNotification('Transaction submitted! Waiting for confirmation...', 'success');
+                
+                const receipt = await tx.wait();
+                
+                // Log inscription details
+                console.log('=== MINT INSCRIPTION(S) ===');
+                console.log('Number of Mints:', numMints);
+                console.log('Total MONS:', numMints * CONFIG.PER_MINT);
+                console.log('Inscription Data:', inscriptions.map(i => ethers.utils.toUtf8String(i)));
+                console.log('Transaction Hash:', receipt.transactionHash);
+                console.log('Block Number:', receipt.blockNumber);
+                console.log('===========================');
+                
+                showNotification(`Successfully inscribed ${numMints} mint(s) for ${numMints * CONFIG.PER_MINT} MONS!`, 'success');
+                
+                console.log('Mint inscriptions:', inscriptions.map(i => ethers.utils.toUtf8String(i)));
+                console.log('Transaction:', receipt.transactionHash);
+                
+                await loadUserData();
+
+            } catch (error) {
+                console.error('Mint error:', error);
+                showNotification('Mint failed: ' + error.message, 'error');
+            } finally {
+                const button = e.target.querySelector('button[type="submit"]');
+                button.disabled = false;
+                button.textContent = 'Mint MONS';
+            }
+        });
+
+        // Transfer Form
+        document.getElementById('transferForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!userAddress) {
+                showNotification('Please connect your wallet first!', 'error');
+                return;
+            }
+
+            if (!contract) {
+                showNotification('Contract not initialized.', 'error');
+                return;
+            }
+
+            const recipient = document.getElementById('recipientAddress').value;
+            const amount = parseInt(document.getElementById('transferAmount').value);
+
+            if (!ethers.utils.isAddress(recipient)) {
+                showNotification('Invalid recipient address!', 'error');
+                return;
+            }
+
+            if (amount > userBalance) {
+                showNotification('Insufficient balance!', 'error');
+                return;
+            }
+
+            try {
+                const button = e.target.querySelector('button[type="submit"]');
+                button.disabled = true;
+                button.innerHTML = '<span class="loading"></span> Transferring...';
+
+                // Create transfer inscription
+                const inscriptionData = `data:,{"p":"mon-20","op":"transfer","tick":"mons","to":"${recipient}","amt":"${amount}"}`;
+                const dataBytes = ethers.utils.toUtf8Bytes(inscriptionData);
+
+                const tx = await contract.inscribe(dataBytes, { 
+                    value: ethers.utils.parseEther(CONFIG.MINT_FEE) 
+                });
+                
+                showNotification('Transaction submitted! Waiting for confirmation...', 'success');
+                
+                const receipt = await tx.wait();
+                
+                // Log inscription details
+                console.log('=== TRANSFER INSCRIPTION ===');
+                console.log('From:', userAddress);
+                console.log('To:', recipient);
+                console.log('Amount:', amount, 'MONS');
+                console.log('Inscription Data:', inscriptionData);
+                console.log('Transaction Hash:', receipt.transactionHash);
+                console.log('Block Number:', receipt.blockNumber);
+                console.log('============================');
+                
+                showNotification(`Successfully inscribed transfer of ${amount} MONS!`, 'success');
+                
+                console.log('Transfer inscription:', inscriptionData);
+                console.log('Transaction:', receipt.transactionHash);
+                
+                await loadUserData();
+                document.getElementById('transferForm').reset();
+
+            } catch (error) {
+                console.error('Transfer error:', error);
+                showNotification('Transfer failed: ' + error.message, 'error');
+            } finally {
+                const button = e.target.querySelector('button[type="submit"]');
+                button.disabled = false;
+                button.textContent = 'Transfer Tokens';
+            }
+        });
+
+        // Utility Functions
+        function formatAddress(address) {
+            return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                <div class="notification-title">${type === 'success' ? '✓ Success' : '✗ Error'}</div>
+                <div>${message}</div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideIn 0.5s ease reverse';
+                setTimeout(() => notification.remove(), 500);
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
