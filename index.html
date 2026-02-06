@@ -619,6 +619,10 @@
                     <div class="progress-stat-value" id="totalInscriptions">0</div>
                 </div>
                 <div class="progress-stat">
+                    <div class="progress-stat-label">Total Holders</div>
+                    <div class="progress-stat-value" id="totalHolders">0</div>
+                </div>
+                <div class="progress-stat">
                     <div class="progress-stat-label">Your Balance</div>
                     <div class="progress-stat-value" id="userBalance">0</div>
                 </div>
@@ -959,8 +963,33 @@
                 document.getElementById('progressPercent').textContent = percent + '%';
                 document.getElementById('progressBar').style.width = percent + '%';
 
+                // Calculate holders (estimate from mint events)
+                await calculateHolders();
+
             } catch (error) {
                 console.error('Error loading progress:', error);
+            }
+        }
+
+        // Calculate unique holders from events
+        async function calculateHolders() {
+            try {
+                // Get mint events to count unique addresses
+                const mintFilter = contract.filters.TokensMinted();
+                const mintEvents = await contract.queryFilter(mintFilter, 0, 'latest');
+                
+                const uniqueHolders = new Set();
+                mintEvents.forEach(event => {
+                    uniqueHolders.add(event.args.minter.toLowerCase());
+                });
+
+                document.getElementById('totalHolders').textContent = uniqueHolders.size.toLocaleString();
+            } catch (error) {
+                console.error('Error calculating holders:', error);
+                // Fallback to estimate
+                const totalMinted = parseInt(document.getElementById('totalMinted').textContent.replace(/,/g, ''));
+                const estimatedHolders = Math.floor(totalMinted / 100); // Rough estimate
+                document.getElementById('totalHolders').textContent = estimatedHolders.toLocaleString();
             }
         }
 
@@ -1137,21 +1166,46 @@
                 return;
             }
 
-            const recipient = document.getElementById('recipientAddress').value;
+            if (!contract) {
+                showNotification('Contract not initialized.', 'error');
+                return;
+            }
+
+            const recipient = document.getElementById('recipientAddress').value.trim();
             const amount = parseInt(document.getElementById('transferAmount').value);
+
+            if (!recipient) {
+                showNotification('Please enter recipient address!', 'error');
+                return;
+            }
 
             if (!ethers.utils.isAddress(recipient)) {
                 showNotification('Invalid recipient address!', 'error');
                 return;
             }
 
+            if (!amount || amount <= 0) {
+                showNotification('Please enter a valid amount!', 'error');
+                return;
+            }
+
             try {
+                // Get current balance first
+                const userStats = await contract.getUserStats(userAddress);
+                const currentBalance = userStats.balance.toNumber();
+
+                if (amount > currentBalance) {
+                    showNotification(`Insufficient balance! You have ${currentBalance} MONS`, 'error');
+                    return;
+                }
+
                 const button = e.target.querySelector('button[type="submit"]');
                 button.disabled = true;
                 button.innerHTML = '<span class="loading"></span> Transferring...';
 
                 const tx = await contract.transfer(recipient, amount, { 
-                    value: ethers.utils.parseEther(CONFIG.INSCRIPTION_FEE) 
+                    value: ethers.utils.parseEther(CONFIG.INSCRIPTION_FEE),
+                    gasLimit: 300000
                 });
                 
                 showNotification('Transaction submitted! Waiting for confirmation...', 'success');
@@ -1165,7 +1219,21 @@
 
             } catch (error) {
                 console.error('Transfer error:', error);
-                showNotification('Transfer failed: ' + error.message, 'error');
+                
+                let errorMessage = 'Transfer failed';
+                if (error.code === 4001) {
+                    errorMessage = 'Transaction rejected by user';
+                } else if (error.message.includes('insufficient funds')) {
+                    errorMessage = 'Insufficient MON for gas + fee';
+                } else if (error.message.includes('execution reverted')) {
+                    errorMessage = 'Transaction reverted. Check your balance.';
+                } else if (error.data?.message) {
+                    errorMessage = error.data.message;
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+                
+                showNotification(errorMessage, 'error');
             } finally {
                 const button = e.target.querySelector('button[type="submit"]');
                 button.disabled = false;
