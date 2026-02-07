@@ -573,6 +573,19 @@
     </header>
 
     <main>
+        <!-- Read-only mode banner (shown when wallet not connected) -->
+        <div id="readOnlyBanner" style="display: none; background: linear-gradient(135deg, rgba(255, 107, 53, 0.15) 0%, rgba(212, 175, 55, 0.1) 100%); border: 1px solid rgba(255, 107, 53, 0.3); border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; text-align: center;">
+            <div style="font-size: 1.1rem; color: var(--gold); margin-bottom: 0.5rem; font-weight: 600;">
+                👀 Viewing Mode
+            </div>
+            <div style="font-size: 0.9rem; color: rgba(250, 248, 243, 0.8); margin-bottom: 1rem;">
+                You can view live stats and marketplace listings. Connect your wallet to mint and trade!
+            </div>
+            <button onclick="document.getElementById('connectWallet').click()" class="btn btn-primary">
+                Connect Wallet to Start
+            </button>
+        </div>
+
         <!-- Network Info Banner -->
         <div class="card" style="margin-bottom: 2rem; background: linear-gradient(135deg, rgba(255, 107, 53, 0.1) 0%, rgba(212, 175, 55, 0.05) 100%);">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
@@ -850,10 +863,66 @@
                 updateMintCalculations();
                 updateListingCalculations();
                 
+                // Initialize read-only provider for viewing stats without wallet
+                try {
+                    provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_URL);
+                    contract = new ethers.Contract(CONFIG.CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+                    
+                    // Load public data immediately (no wallet needed)
+                    await loadProgress();
+                    await loadMarketplaceListings();
+                    
+                    // Show read-only banner
+                    const readOnlyBanner = document.getElementById('readOnlyBanner');
+                    if (readOnlyBanner) {
+                        readOnlyBanner.style.display = 'block';
+                    }
+                    
+                    console.log('Public data loaded successfully - Read-only mode');
+                } catch (error) {
+                    console.error('Error loading public data:', error);
+                }
+                
                 // Start progress updates
                 startProgressUpdates();
             } else {
-                showNotification('Please install MetaMask to use this dApp!', 'error');
+                // Even without MetaMask, show read-only data
+                try {
+                    provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_URL);
+                    contract = new ethers.Contract(CONFIG.CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+                    
+                    await loadProgress();
+                    await loadMarketplaceListings();
+                    
+                    startProgressUpdates();
+                    
+                    // Update banner message for no MetaMask
+                    const readOnlyBanner = document.getElementById('readOnlyBanner');
+                    if (readOnlyBanner) {
+                        readOnlyBanner.innerHTML = `
+                            <div style="font-size: 1.1rem; color: var(--accent); margin-bottom: 0.5rem; font-weight: 600;">
+                                ⚠️ MetaMask Not Detected
+                            </div>
+                            <div style="font-size: 0.9rem; color: rgba(250, 248, 243, 0.8); margin-bottom: 1rem;">
+                                You can view live stats and marketplace listings. Install MetaMask to mint and trade!
+                            </div>
+                            <a href="https://metamask.io" target="_blank" class="btn btn-primary" style="text-decoration: none;">
+                                Install MetaMask
+                            </a>
+                        `;
+                        readOnlyBanner.style.display = 'block';
+                    }
+                    
+                    console.log('Running in read-only mode (No MetaMask)');
+                } catch (error) {
+                    console.error('Error in read-only mode:', error);
+                }
+                
+                // Show notification only when user tries to interact
+                connectWalletBtn.addEventListener('click', () => {
+                    showNotification('Please install MetaMask to mint and trade!', 'error');
+                    window.open('https://metamask.io', '_blank');
+                });
             }
         }
 
@@ -879,13 +948,19 @@
                     signer = provider.getSigner();
                 }
 
-                // Initialize contract
+                // Initialize contract with signer
                 contract = new ethers.Contract(CONFIG.CONTRACT_ADDRESS, CONTRACT_ABI, signer);
 
                 // Update UI
                 walletAddress.textContent = formatAddress(userAddress);
                 connectWalletBtn.style.display = 'none';
                 walletInfo.style.display = 'block';
+                
+                // Hide read-only banner
+                const readOnlyBanner = document.getElementById('readOnlyBanner');
+                if (readOnlyBanner) {
+                    readOnlyBanner.style.display = 'none';
+                }
 
                 // Load data
                 await loadAllData();
@@ -973,6 +1048,11 @@
         // Load progress data
         async function loadProgress() {
             try {
+                if (!contract) {
+                    console.log('Contract not initialized yet');
+                    return;
+                }
+                
                 const progress = await contract.getMintProgress();
                 
                 const minted = progress.minted.toNumber();
@@ -987,9 +1067,16 @@
 
                 // Calculate holders (estimate from mint events)
                 await calculateHolders();
+                
+                console.log('Progress loaded:', { minted, percent, inscriptions });
 
             } catch (error) {
                 console.error('Error loading progress:', error);
+                // Set default values if loading fails
+                document.getElementById('totalMinted').textContent = '...';
+                document.getElementById('totalInscriptions').textContent = '...';
+                document.getElementById('progressPercent').textContent = '0%';
+                document.getElementById('totalHolders').textContent = '...';
             }
         }
 
@@ -1051,10 +1138,22 @@
         function startProgressUpdates() {
             // Update every 5 seconds
             progressUpdateInterval = setInterval(async () => {
-                if (contract) {
-                    await loadProgress();
+                try {
+                    if (contract) {
+                        await loadProgress();
+                        
+                        // Only load marketplace if tab is active
+                        const marketplaceTab = document.getElementById('marketplaceTab');
+                        if (marketplaceTab && marketplaceTab.classList.contains('active')) {
+                            await loadMarketplaceListings();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error in progress update:', error);
                 }
             }, 5000);
+            
+            console.log('Progress updates started (every 5 seconds)');
         }
 
         // Setup event listeners for real-time updates
@@ -1150,6 +1249,12 @@
             
             if (!userAddress) {
                 showNotification('Please connect your wallet first!', 'error');
+                // Show read-only banner
+                const banner = document.getElementById('readOnlyBanner');
+                if (banner) {
+                    banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    banner.style.animation = 'pulse 0.5s ease 3';
+                }
                 return;
             }
 
@@ -1398,15 +1503,21 @@
 
         // Load Marketplace Listings
         async function loadMarketplaceListings() {
-            if (!contract) return;
+            if (!contract) {
+                console.log('Contract not initialized for marketplace');
+                return;
+            }
 
             try {
                 const listings = await contract.getActiveListings(0, 50);
                 const container = document.getElementById('marketplaceListings');
+                
+                if (!container) return; // Tab not visible yet
+                
                 container.innerHTML = '';
 
                 if (listings.listingIds.length === 0) {
-                    container.innerHTML = '<p style="color: rgba(250, 248, 243, 0.6); text-align: center; padding: 2rem;">No active listings</p>';
+                    container.innerHTML = '<p style="color: rgba(250, 248, 243, 0.6); text-align: center; padding: 2rem;">No active listings yet. Be the first to list!</p>';
                     return;
                 }
 
@@ -1419,6 +1530,11 @@
 
                     const card = document.createElement('div');
                     card.className = 'listing-card';
+                    
+                    // Show buy button only if wallet is connected
+                    const canBuy = userAddress && seller.toLowerCase() !== userAddress.toLowerCase();
+                    const isOwnListing = userAddress && seller.toLowerCase() === userAddress.toLowerCase();
+                    
                     card.innerHTML = `
                         <div class="listing-seller">Seller: ${formatAddress(seller)}</div>
                         <div class="listing-amount">${amount.toLocaleString()} MONS</div>
@@ -1426,22 +1542,30 @@
                         <div class="listing-price" style="font-size: 1rem; color: var(--gold-light);">
                             Total: ${totalPrice.toFixed(6)} MON
                         </div>
-                        ${userAddress && seller.toLowerCase() !== userAddress.toLowerCase() ? 
+                        ${canBuy ? 
                             `<div class="listing-actions">
                                 <button onclick="buyListing(${listingId}, ${totalPrice})" class="btn btn-success" style="width: 100%;">
                                     Buy Now
                                 </button>
                             </div>` : 
-                            userAddress && seller.toLowerCase() === userAddress.toLowerCase() ?
+                            isOwnListing ?
                             '<div style="color: rgba(250, 248, 243, 0.6); font-size: 0.8rem; margin-top: 1rem;">Your listing</div>' :
+                            !userAddress ?
+                            '<div style="color: rgba(250, 248, 243, 0.6); font-size: 0.8rem; margin-top: 1rem;">Connect wallet to buy</div>' :
                             ''
                         }
                     `;
                     container.appendChild(card);
                 }
+                
+                console.log('Loaded', listings.listingIds.length, 'marketplace listings');
 
             } catch (error) {
                 console.error('Error loading marketplace listings:', error);
+                const container = document.getElementById('marketplaceListings');
+                if (container) {
+                    container.innerHTML = '<p style="color: rgba(255, 107, 53, 0.8); text-align: center; padding: 2rem;">Error loading listings. Please refresh the page.</p>';
+                }
             }
         }
 
